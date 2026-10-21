@@ -274,7 +274,9 @@ ok('AWG_DNS reaches the container env',
 
 const literal = runGenerate('198.51.100.1:443', '');
 ok('an IP endpoint needs no AWG_DNS', literal.err.length === 0, literal.err);
-ok('and none is written', literal.out.indexOf('AWG_DNS') < 0);
+// The install reads AWG_DNS back for the container's dns property, so the name
+// itself does show up; what must not appear is an env entry for it.
+ok('and none is written', !/\/container\/envs\/add[^\n]*key=AWG_DNS/.test(literal.out));
 
 const literalWithDns = runGenerate('198.51.100.1:443', '192.168.88.1');
 ok('an explicit AWG_DNS is honoured even for an IP endpoint',

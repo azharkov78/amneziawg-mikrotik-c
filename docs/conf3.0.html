@@ -3787,6 +3787,9 @@
         // Пересборка не должна терять привилегированный режим - без него
         // приёмный буфер снова упрётся в 416 КБ. См. установочный скрипт.
         src.push('              :do { [:parse "/container/set [find where interface=' + veth + '] privileged=yes"] } on-error={}');
+        // Без DNS у роутера пересобранный контейнер на 7.24+ не стартует вовсе.
+        Array.prototype.push.apply(src, containerDnsLines('              ', '[find where interface=' + veth + ']', env,
+            '[:pick $newCids ([:len $newCids] - 1)]'));
         src.push('              :do { /container/start [:pick $newCids ([:len $newCids] - 1)] } on-error={}');
         src.push('              :delay 8s');
         src.push('              :do { :if ([/container/get [:pick $newCids ([:len $newCids] - 1)] stopped] != true) do={ :set backUp true } } on-error={}');
@@ -6435,6 +6438,37 @@
         return lines.join('\n');
     }
 
+    // RouterOS 7.24 не запускает контейнер без DNS: если у самого роутера нет
+    // серверов (например, настроен только DoH), старт обрывается с
+    // "no default dns servers, explicitly set empty dns override if intended".
+    // Прокси DNS роутера не нужен: резолвер он берёт из AWG_DNS и после старта
+    // сам переписывает /etc/resolv.conf. Поэтому контейнеру отдаётся тот же
+    // AWG_DNS, а без него (endpoint - IP-адрес) пустой override - тогда RouterOS
+    // resolv.conf не трогает вовсе. Адрес роутера на veth не годится: штатный
+    // фаервол режет DNS-запросы не из LAN. Только на 7.24+ и через :parse с
+    // on-error, как privileged: на старых версиях всё остаётся как было.
+    // emptyOnlyFor - id контейнера: пустой override ему, только если RouterOS не
+    // нашёл DNS роутера (default-dns пуст - ровно то, на чём падает старт). Это
+    // для пересборки в <prefix>-update: ей может достаться установка старым
+    // конфигуратором с доменом в AWG_REMOTE без AWG_DNS, живущая на DNS роутера.
+    function containerDnsLines(ind, target, envList, emptyOnlyFor) {
+        var set = ':do { [:parse "/container/set ' + target + ' dns=\\"$cDns\\""] } on-error={}';
+        var lines = [];
+        lines.push(ind + ':if ($minor >= 24) do={');
+        lines.push(ind + '  :local cDns ""');
+        lines.push(ind + '  :do { :set cDns [/container/envs/get [find where list="' + envList + '" key="AWG_DNS"] value] } on-error={}');
+        if (emptyOnlyFor) {
+            lines.push(ind + '  :local dnsId ' + emptyOnlyFor);
+            lines.push(ind + '  :local defDns 1');
+            lines.push(ind + '  :do { :set defDns [:len [[:parse ":return [/container/get $dnsId default-dns]"]]] } on-error={}');
+            lines.push(ind + '  :if ($cDns != "" || $defDns = 0) do={ ' + set + ' }');
+        } else {
+            lines.push(ind + '  ' + set);
+        }
+        lines.push(ind + '}');
+        return lines;
+    }
+
     function buildImageSetupLines(prefix, storageDisk, opts) {
         opts = opts || {};
         var offline = offlineEnabled();
@@ -6586,6 +6620,7 @@
         // меняет: сырые сокеты, netlink и SO_MARK были доступны и без него.
         // Параметра нет до 7.24, поэтому :parse и on-error.
         lines.push('  :do { [:parse "/container/set [find where interface=veth-' + prefix + '] privileged=yes"] } on-error={}');
+        Array.prototype.push.apply(lines, containerDnsLines('  ', '[find where interface=veth-' + prefix + ']', prefix + '-env', false));
         // Only remove what this script downloaded: an archive the user dropped on the
         // router by hand is their offline copy.
         lines.push('  :if ($fetched) do={ /file/remove $filePath }');
