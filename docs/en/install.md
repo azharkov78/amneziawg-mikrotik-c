@@ -1,6 +1,6 @@
 # Installing awg-proxy on MikroTik
 
-> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md). The Russian docs in [docs/](../) are the most complete.
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md).
 
 ## Getting AWG Parameters
 
@@ -128,3 +128,44 @@ Verify it works:
 ```
 
 The container should show `running` status, and the peer should have a `last-handshake` value.
+
+## Installing Without GitHub Access
+
+If the router cannot reach GitHub, turn on **offline mode** in the configurator. The output gets a **step 0**: a script
+that changes nothing and only prints exactly what to download and where to put it:
+
+```
+1. Container image
+   file: awg-proxy-arm64.tar.gz
+   url:  https://github.com/timbrs/amneziawg-mikrotik-c/releases/latest/download/awg-proxy-arm64.tar.gz
+   put it here: usb1/awg-proxy-arm64.tar.gz
+
+2. RU address list
+   file: ru_ranges_timeout.rsc
+   url:  https://github.com/timbrs/ru-ranges/releases/latest/download/ru_ranges_timeout.rsc
+   put it here: usb1/ru_ranges_timeout.rsc
+```
+
+The archive name cannot be known in advance: it depends on the architecture, the RouterOS version
+(7.20 and older need the `-7.20-Docker` build) and — on arm — the board model (hEX, E50UG,
+E60iUGS and E62iUGS get `armv5`). That is why step 0 asks the router itself.
+
+The order:
+
+1. Run step 0 on the router and note the file names.
+2. Download them somewhere GitHub is reachable.
+3. Upload them to the router (Files, or drag them into WinBox) at the paths shown.
+4. Run step 1, the install.
+
+In offline mode the install does not touch the network at all: no `remote-image` from the
+registry, no `/tool/fetch` of the release archive. If a file is not where it should be, the
+script names the missing file and stops instead of failing inside `fetch`.
+The RU list update also stops waiting a minute for `github.com` on every boot and on every
+daily run, and takes either of the two files — `ru_ranges_timeout.rsc` or `ru_ranges.rsc`.
+
+A file you put there by hand is never deleted by the script — it is yours. Only what the
+script downloaded itself gets removed.
+
+No daily update scheduler is created in offline mode: it fetches the release list from
+`api.github.com`. The `<prefix>-update` script is still installed — run it by hand once the
+router has internet access.

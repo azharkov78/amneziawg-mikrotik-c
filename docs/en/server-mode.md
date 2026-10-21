@@ -1,6 +1,6 @@
 # Server Mode (1:N) — Detailed Setup
 
-> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md). The Russian docs in [docs/](../) are the most complete.
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md).
 
 Server mode allows a single awg-proxy to serve multiple MikroTik clients simultaneously. It acts as a full AmneziaWG server, implemented via a WireGuard server + awg-proxy pair.
 
@@ -198,7 +198,13 @@ Client 1 (192.168.8.0/24)                    Client 2 (192.168.11.0/24)
                       WG: 10.10.10.1
 ```
 
-Default routes only cover client ↔ server. There are **no** routes between clients.
+Routes set up by default:
+- Client 1 → server network (192.168.1.0/24)
+- Client 2 → server network (192.168.1.0/24)
+- Server → client 1 network (192.168.8.0/24)
+- Server → client 2 network (192.168.11.0/24)
+
+There are **no** client 1 ↔ client 2 routes.
 
 ### How to Add
 

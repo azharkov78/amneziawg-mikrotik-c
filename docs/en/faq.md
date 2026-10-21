@@ -1,6 +1,6 @@
 # awg-proxy FAQ
 
-> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md). The Russian [FAQ](../faq.md) is the reference version.
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md).
 
 The questions come from user discussions and are worded the way people usually ask them. Answers are
 current for awg-proxy 1.4.3 (October 2026).
@@ -130,7 +130,7 @@ Wi-Fi badly understates upload speed.
 ### Sites load every other time, YouTube stalls, but ping works
 
 It is almost always MTU. The typical case is PPPoE: the link carries 1492 instead of 1500, so every full packet
-goes out as two fragments. Set "Underlying link MTU" in the configurator (1492 for PPPoE). The proxy also logs
+goes out as two fragments. Set "Underlay path MTU" in the configurator (1492 for PPPoE). The proxy also logs
 the value to use: `WARN: set the WireGuard interface MTU to … or lower`. Details:
 [MTU](routing.md#mtu-on-narrow-links-pppoe-lte).
 
@@ -161,8 +161,7 @@ phone works and the router does not, look at MTU and the container logs.
 Per-service routing is built on DNS: the router sees the address a DNS reply returned and puts it into an
 address-list. If a device asks someone other than the router (DoH in the browser, Android Private DNS, a
 hard-coded 8.8.8.8), the router never sees the query and the traffic bypasses the tunnel. Some services
-(Telegram) connect by IP without DNS at all. The Russian [routing doc](../routing.md#dns-маршрутизация-что-она-может-и-чего-не-может)
-explains how to check.
+(Telegram) connect by IP without DNS at all. How to check: [limits of DNS routing](routing.md#dns-routing-what-it-can-and-cannot-do).
 
 ### Will it help against "whitelists" on mobile internet?
 
@@ -183,7 +182,8 @@ install also keeps the version in the `AWG_IMAGE_VER` variable of the container'
 
 awg-proxy does not need Docker Hub: the image is in GHCR (`ghcr.io/timbrs/awg-proxy`) and in GitHub releases.
 If the router cannot reach GitHub either, turn on the configurator's **offline mode**: it prints which files to
-download elsewhere and where to put them on the router.
+download elsewhere and where to put them on the router. Details:
+[installing without GitHub access](install.md#installing-without-github-access).
 
 ### How do I update the container?
 

@@ -2,7 +2,7 @@
 
 > awg-proxy is a ~300 KB RouterOS container that lets the native MikroTik WireGuard client connect to AmneziaWG servers (AWG 1.0, 1.5, 2.0, 3.0, 3.1; Cloudflare WARP configs work too). The router does the WireGuard encryption; the container only rewrites packet headers, padding and junk packets. It is installed with an offline browser configurator that turns an AmneziaVPN `.conf` into RouterOS commands. Current repository: https://github.com/timbrs/amneziawg-mikrotik-c — the old Go version timbrs/amneziawg-mikrotik is deprecated.
 >
-> Русский: контейнер для RouterOS, который подключает штатный WireGuard MikroTik к серверам AmneziaWG. Ставится конфигуратором https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html — он работает офлайн и никуда не отправляет ключи. Документация на русском полнее английской.
+> Русский: контейнер для RouterOS, который подключает штатный WireGuard MikroTik к серверам AmneziaWG. Ставится конфигуратором https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html — он работает офлайн и никуда не отправляет ключи. Документация есть на русском и английском, разделы совпадают.
 
 Key facts (docs reviewed 2026-10-22, awg-proxy 1.4.3):
 
@@ -12,7 +12,7 @@ Key facts (docs reviewed 2026-10-22, awg-proxy 1.4.3):
 - Modes: normal client (default), reverse (site-to-site between two MikroTiks), server (1:N hub on a VPS or a MikroTik).
 - Speed is limited by the router CPU doing WireGuard crypto, not by the proxy.
 
-## Docs (Russian, most complete)
+## Docs (Russian, primary)
 
 - [README](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/README.md): summary, model compatibility table, quick start
 - [FAQ](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/faq.md): common questions in users' words — will it run on my router, speed, 16 MB flash, comparison with other containers
@@ -29,8 +29,12 @@ Key facts (docs reviewed 2026-10-22, awg-proxy 1.4.3):
 - [README](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/README_en.md)
 - [FAQ](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/faq.md)
 - [Installation](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/install.md)
-- [Troubleshooting](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/troubleshooting.md)
+- [Updating](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/update.md)
 - [Environment variables](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/env.md)
+- [AmneziaWG 3.0, 3.1 and IPv6](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/protocol.md)
+- [Routing, DNS and MTU](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/routing.md)
+- [Server mode](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/server-mode.md)
+- [Troubleshooting](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/docs/en/troubleshooting.md)
 
 ## Optional
 

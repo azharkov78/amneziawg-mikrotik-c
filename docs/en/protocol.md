@@ -1,6 +1,6 @@
 # AmneziaWG 3.0, 3.1 and IPv6
 
-> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md). The Russian docs in [docs/](../) are the most complete.
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md).
 
 ## AmneziaWG 3.0
 
@@ -46,7 +46,17 @@ Both are carried over from a `.conf` by the configurator as-is (`RandomTrailers 
 
 ## IPv6
 
-IPv6 is supported **on the container → AWG server leg only** (`AWG_REMOTE`). Receiving from the WireGuard client (`AWG_LISTEN`) stays IPv4: that is a veth inside the router itself, where a second stack adds nothing, and the session table and profile cache store the client address as a `sockaddr_in`.
+IPv6 works on both legs. **Outbound** (`AWG_REMOTE`, container → AWG server) is described below. **Inbound** (`AWG_LISTEN`) is needed in `server` and `reverse` modes, where the socket faces the internet: a hub on a router without a public IPv4 is reachable for clients over IPv6 only. Putting an IPv6 address into `AWG_LISTEN` switches the socket's family:
+
+```
+AWG_LISTEN=:51820             # IPv4, as before — an ordinary client tunnel on the veth
+AWG_LISTEN=[::]:443           # both families: an IPv4 client arrives v4-mapped
+AWG_LISTEN=[2001:db8::1]:443  # this address only
+```
+
+The family is chosen once, at startup, and from then on the client address is stored everywhere — in the session table, in the profile cache and in the recv/send batches — in one fixed-length form, so the hot path never branches on the family. On `[::]` `IPV6_V6ONLY` is turned off, so a single hub serves clients of both families from one socket.
+
+On a MikroTik the container gets no IPv6 by itself: the veth needs an address (usually a ULA) and a `gateway6`, and inbound traffic has to be steered to it with a `dst-nat` in `/ipv6 firewall nat`. The configurator does this itself when the "Server is reachable over IPv6" box is ticked.
 
 **When it is used.** The proxy resolves `AWG_REMOTE` on `AF_UNSPEC` and keeps the first A and the first AAAA record. From there:
 
@@ -62,6 +72,12 @@ IPv6 is supported **on the container → AWG server leg only** (`AWG_REMOTE`). R
 3. whichever family answers first wins; the loser's socket is closed and behaviour from then on is identical to a single-stack configuration — no steady-state overhead.
 
 The probe waits in `poll()` on the two descriptors and never reads, so the winning datagram is left queued for the normal receive path. A `POLLERR` (ICMP unreachable) on one socket hands the connection to the other family immediately. Every reconnect restarts the probe — and since `dial_remote()` re-resolves the name each time, that doubles as the re-resolve-on-failure path.
+
+**Learned preference (`AWG_STATE_FILE`).** If the site's IPv4 is dead (typical behind CGNAT), the 250 ms head start is paid again on every reconnect. So the probe's outcome is remembered: one byte goes into a file -- `6` or `4` -- and the next start dials the learned family first. The write happens **at most once per process run** and only when the byte on disk is stale: the router's flash is small, and a flapping link must not turn into a write loop.
+
+What the values mean matters. `6` is only an optimisation: skip a head start for an IPv4 known to be dead. `4` is **not** "IPv6 off" but a return to the standard order, in which the IPv6 socket is still opened and probed on every connect and reconnect. So a temporary IPv6 outage is not remembered forever: as soon as IPv4 goes quiet again, IPv6 gets a new chance and can win the preference back. If the name has no AAAA at all (or `AWG_REMOTE` holds an IPv4 literal), IPv6 is not used at all, and no marker changes that.
+
+The file lives in the container's root and survives a restart. `AWG_STATE_FILE=""` turns saving off entirely -- the behaviour goes back to plain RFC 8305 with no memory.
 
 **MTU.** The IPv6 header is 20 bytes longer and a full-size packet no longer fits 1500 — formulas and ceilings are in the AmneziaWG 3.0 section above. The proxy does not change the MTU (it belongs to the router's WireGuard interface); it logs this on connect instead:
 

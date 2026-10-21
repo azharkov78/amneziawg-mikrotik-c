@@ -1,6 +1,6 @@
 # awg-proxy environment variables
 
-> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md). The Russian docs in [docs/](../) are the most complete.
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md).
 
 ## All Environment Variables
 
@@ -34,9 +34,10 @@
 | `AWG_FB2_*`, `AWG_FB3_*` | No | -- | Chain stages 2 and 3, same set of keys |
 | `AWG_FB_AFTER` | No | `20` | Seconds of remote silence before probing the next stage (initiator) |
 | `AWG_SRC_PORT` | No | random | Outgoing port to server: `random` / `auto` / number |
-| `AWG_TIMEOUT` | No | `180` | Inactivity timeout (sec) |
+| `AWG_TIMEOUT` | No | `60` | How long the server may stay silent on an unanswered handshake before the proxy reconnects (sec) |
 | `AWG_DNS_REFRESH` | No | `60` | Background DNS re-check interval for a hostname in AWG_REMOTE (sec, `0` = off) |
 | `AWG_HE_DELAY` | No | `250` | Happy Eyeballs: ms of IPv4 head start before probing IPv6 (only when the name has both an A and an AAAA) |
+| `AWG_STATE_FILE` | No | `/etc/awg-proxy.state` | File with the learned address-family preference; an empty value means do not save it |
 | `AWG_LOG_LEVEL` | No | `info` | Log level |
 | `AWG_NO_GRO` | No | `0` | Disable UDP GRO |
 | `AWG_NO_GSO` | No | `0` | Disable UDP GSO on send |
@@ -66,11 +67,13 @@ The protocol version is detected automatically: **v3.1** if `AWG_RANDOM_TRAILERS
 
 All values are taken from the `.conf` file exported from AmneziaVPN (`[Interface]` and `[Peer]` sections). They must **exactly** match the server parameters, otherwise the handshake will fail.
 
-**`AWG_LISTEN`** -- address and port where the proxy listens for UDP packets from the router's WireGuard client. Format: `address:port` or `:port` (listen on all interfaces).
+**`AWG_LISTEN`** -- address and port where the proxy receives UDP packets: from the router's WireGuard client in `normal` mode, from AWG clients on the internet in `reverse` and `server` modes. Format: `address:port` or `:port` (listen on all interfaces). An IPv6 literal goes in square brackets, as in `AWG_REMOTE`.
 
 ```
-AWG_LISTEN=:51820          # all interfaces, port 51820 (standard)
-AWG_LISTEN=172.18.0.2:9000 # specific address and port
+AWG_LISTEN=:51820             # all interfaces, port 51820 (standard)
+AWG_LISTEN=172.18.0.2:9000    # specific address and port
+AWG_LISTEN=[::]:443           # both families at once (a hub reachable over IPv6)
+AWG_LISTEN=[2001:db8::1]:443  # this IPv6 address only
 ```
 
 **`AWG_REMOTE`** -- address and port of the AWG server (`Endpoint` from `[Peer]`). Supports IPv4, IPv6 and domain names. An IPv6 literal **must** be bracketed: the port is separated by a colon and the address itself is full of them, so without brackets the form is ambiguous and is rejected.
@@ -94,7 +97,7 @@ The port is drawn from the list **at random, anew on every connection** -- at st
 
 This only works if the **server really accepts every listed port** -- that is, it DNATs/REDIRECTs all of them to its AmneziaWG port. Listing ports nothing is listening on buys silence and endless hopping. The web configurator fills these ranges into `AWG_REMOTE` when the `.conf` carries an `# AllowedPorts = ...` line (written by the bot that issued the key). For a Cloudflare WARP config it fills in Cloudflare's WireGuard ports by itself: `2408,500,1701,4500`.
 
-Note that IPv6 is supported **on the server-facing leg only**. `AWG_LISTEN` (receiving from the router's WireGuard client) stays IPv4 — it is a local veth inside the router, where a second stack buys nothing.
+Receiving over IPv6 is set up separately, through `AWG_LISTEN` (see above): in `normal` it is not needed -- that is a local veth inside the router -- while in `server`/`reverse` it is exactly what makes the hub reachable for clients.
 
 **`AWG_JC`**, **`AWG_JMIN`**, **`AWG_JMAX`** -- junk packet parameters. Before each handshake init, `JC` random UDP packets of size between `JMIN` and `JMAX` bytes are sent. The server discards them, but they look like regular traffic to DPI. Values from `.conf` (`Jc`, `Jmin`, `Jmax`).
 
@@ -182,12 +185,12 @@ AWG_I1=b:48656c6c6f,r:10,t:4,c:4
 
 - `normal` (default) -- standard proxy: accepts WireGuard from the router, transforms to AWG, and sends to the AWG server.
 - `reverse` -- reverse proxy (1:1 site-to-site): accepts AWG from another normal proxy, transforms back to WireGuard, and sends to a local WG server. Used in pair with a normal proxy on the other side.
-- `server` -- reverse proxy hub (1:N): like reverse, but supports connections from multiple normal proxies simultaneously. Response routing from the WG server to the correct client is done via a session table using `sender_index`/`receiver_index` from WireGuard packets.
+- `server` -- reverse proxy hub (1:N): essentially an AmneziaWG Server equivalent. Supports connections from multiple normal proxies simultaneously. Response routing from the WG server to the correct client is done via a session table using `sender_index`/`receiver_index` from WireGuard packets.
 
 ```
 AWG_MODE=normal    # default
 AWG_MODE=reverse   # reverse proxy, 1:1
-AWG_MODE=server    # reverse proxy hub, 1:N
+AWG_MODE=server    # AmneziaWG server, 1:N
 ```
 
 In `reverse` and `server` modes, `AWG_REMOTE` points to the WireGuard server (not the AWG server), while `AWG_LISTEN` accepts AWG traffic from normal proxies. Obfuscation parameters (H1--H4, S1--S4, JC, etc.) must match the normal proxy on the other side.
@@ -207,12 +210,14 @@ AWG_SRC_PORT=0       # same as auto
 AWG_SRC_PORT=12345   # fixed port 12345
 ```
 
-**`AWG_TIMEOUT`** -- inactivity timeout in seconds. If no packets are sent or received in either direction within this time, the proxy reconnects to the server (re-resolves DNS + new socket). Useful when the server's IP address changes behind DNS.
+**`AWG_TIMEOUT`** -- how many seconds the server may stay silent in reply to a handshake before the proxy reconnects (re-resolve DNS + new socket + a fresh check of both address families).
+
+What counts is not idleness but the server's silence while the client is alive: an established tunnel with no traffic is legitimately quiet, and a keepalive expects no answer, so neither triggers a reconnect on its own. The signal is an unanswered handshake init -- WireGuard always answers one when it can, so silence in reply means the path is gone, not the traffic. That is why a short value is safe and causes no false reconnects.
 
 ```
-AWG_TIMEOUT=180   # default, 3 minutes
-AWG_TIMEOUT=60    # aggressive timeout for unstable connections
-AWG_TIMEOUT=3600  # 1 hour, for stable links
+AWG_TIMEOUT=60    # default, 1 minute
+AWG_TIMEOUT=30    # notice a drop sooner on unstable links
+AWG_TIMEOUT=300   # 5 minutes, when reconnecting costs more than downtime
 ```
 
 **`AWG_DNS_REFRESH`** -- background DNS re-check interval in seconds when `AWG_REMOTE` is a hostname (disabled for a literal IP, v4 or v6). The proxy periodically re-resolves the hostname and, if the current server address has disappeared from the records on two consecutive checks (round-robin DNS protection), reconnects to the new address without waiting for `AWG_TIMEOUT`. The lookup runs on `AF_UNSPEC`, and a record only counts as a match when both its family and its address bytes match — otherwise an A record would mask a vanished AAAA on a dual-stack name. Granularity is 5 seconds. The reconnect resets the client session (same as on timeout) -- WireGuard performs a new handshake on its own.
@@ -227,6 +232,13 @@ AWG_DNS_REFRESH=0    # disable the background DNS check
 ```
 AWG_HE_DELAY=250   # default, as in RFC 8305
 AWG_HE_DELAY=0     # duplicate the first packet over IPv6 immediately
+```
+
+**`AWG_STATE_FILE`** -- where to keep the learned address-family preference (one byte, `6` or `4`). It is written at most once per process run and only when the value changes, so as not to wear out the router's flash. The value `4` does not turn IPv6 off; it only brings back the standard order with the probe. See the [IPv6](protocol.md#ipv6) section.
+
+```
+AWG_STATE_FILE=/etc/awg-proxy.state   # default
+AWG_STATE_FILE=                       # do not remember at all
 ```
 
 **`AWG_LOG_LEVEL`** -- logging level. Controls the verbosity of output in `/container/print` and the router's syslog.
@@ -272,8 +284,6 @@ AWG_NO_DF=1   # clear the DF bit on the proxy's UDP packets
 
 `AWG_RPS` writes a core mask into `rps_cpus` of the container interface's receive queue, so the kernel spreads receive processing over those CPUs instead of one. The mask is hexadecimal, as the kernel expects: `9` = cores 0 and 3, `e` = cores 1--3.
 
-**The set `AWG_CPU_*` + `AWG_RT` + `AWG_RPS` is for a 64-bit router with four cores or more** (hAP ax², ax³), and the container checks that by itself. With fewer than four cores (counting the container's `cpu-list`) or a 32-bit CPU the whole set is dropped with one log line (`perf: 2 cores - ... skipped` or `perf: 32-bit CPU - ... skipped`). Why: on two cores real-time threads take the CPU from WireGuard's crypto, and on a four-core 32-bit hAP ac² a thread pinned to a core and raised to real time keeps WireGuard's worker off that core -- upload fell from 100 to 34 Mbit/s with ping at 454 ms. Along the way a pin to a core that does not exist (or was not given to the container) is skipped, and the cores of pinned threads are taken out of `AWG_RPS`.
-
 Keeping the two on different cores is essential. On a hAP ax(2), with threads pinned by `AWG_CPU_C2S=1` and `AWG_CPU_S2C=2`, the mask `e` (cores 1--3) overlaps the threads themselves: real time preempts the softirq exactly where RPS puts it, and the gain is eaten. The mask `9` (cores 0 and 3) separates them and gave the best result of every combination tested.
 
 ```
@@ -285,6 +295,8 @@ AWG_CPU_S2C=2
 ```
 
 At startup the proxy reports what it got: `c2s: realtime SCHED_RR prio 10` or `c2s: realtime refused (...)`, and `rps: <interface> mask applied`. If the lines are missing, check that the container is privileged and that the log level lets INFO through.
+
+**The set `AWG_CPU_*` + `AWG_RT` + `AWG_RPS` is for a 64-bit router with four cores or more** (hAP ax², ax³), and the container checks that by itself. With fewer than four cores (counting the container's `cpu-list`) or a 32-bit CPU the whole set is dropped with one log line (`perf: 2 cores - ... skipped` or `perf: 32-bit CPU - ... skipped`). Why: on two cores real-time threads take the CPU from WireGuard's crypto, and on a four-core 32-bit hAP ac² a thread pinned to a core and raised to real time keeps WireGuard's worker off that core -- upload fell from 100 to 34 Mbit/s with ping at 454 ms. Along the way a pin to a core that does not exist (or was not given to the container) is skipped, and the cores of pinned threads are taken out of `AWG_RPS`.
 
 **`AWG_SOCKET_BUF`** -- receive/send buffer sizes (SO_RCVBUF/SO_SNDBUF) for UDP sockets in bytes. The kernel doubles the requested value.
 

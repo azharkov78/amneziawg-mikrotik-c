@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md). The Russian docs in [docs/](../) are the most complete.
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md).
 
 **Container does not start** -- check the container package is installed (`/system/package/print`), device mode is enabled (`/system/device-mode/print`), and there is enough disk space (`/system/resource/print`).
 
@@ -51,7 +51,7 @@ Fix:
 
 **3. DNS resolution of AWG_REMOTE on Side A (client)**
 
-If `AWG_REMOTE` is a hostname, the container needs working DNS. Set `AWG_DNS=8.8.8.8` or `AWG_DNS=1.1.1.1` in the container environment variables. The proxy re-checks DNS in the background (`AWG_DNS_REFRESH`, once per 60 s by default) and reconnects on its own when the server IP changes. If DNS also goes through the tunnel (circular dependency), resolve the hostname manually and use the IP:
+If `AWG_REMOTE` is a hostname, the container needs working DNS: the image is built from `scratch`, has no `/etc/resolv.conf` of its own, and the proxy writes one from `AWG_DNS`. The configurator asks for this address in the **"Container DNS server"** field and will not generate an install with a domain endpoint without it. By hand: set `AWG_DNS=8.8.8.8` or `AWG_DNS=1.1.1.1` in the container environment variables. The address must be reachable from the container **without** the tunnel — the router itself or a public resolver, not the DNS from the config, which usually lives inside the tunnel. The proxy re-checks DNS in the background (`AWG_DNS_REFRESH`, once per 60 s by default) and reconnects on its own when the server IP changes. If DNS also goes through the tunnel (circular dependency), resolve the hostname manually and use the IP:
 ```routeros
 :put [:resolve vpn.example.com]
 # Then set the resolved IP in AWG_REMOTE

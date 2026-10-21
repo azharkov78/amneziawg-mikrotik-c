@@ -38,6 +38,7 @@ For RouterOS 7.20 and older use the same names with the `-7.20-Docker` suffix, e
 
 - [How It Works](#how-it-works)
 - [Quick Start (Configurator)](#quick-start-configurator)
+- [Installing Without GitHub Access](#installing-without-github-access)
 - [Requirements](#requirements)
 - [Manual Installation](#manual-installation)
 - [Getting AWG Parameters](#getting-awg-parameters)
@@ -49,12 +50,12 @@ For RouterOS 7.20 and older use the same names with the `-7.20-Docker` suffix, e
 - [Building from Source](#building-from-source)
 - [License](#license)
 
-Detailed documentation lives in [`docs/en/`](docs/en/) (the Russian [`docs/`](docs/) is the most complete):
+Detailed documentation lives in separate files in [`docs/en/`](docs/en/) (Russian: [`docs/`](docs/)):
 
 | File | Topic |
 |------|-------|
 | [faq.md](docs/en/faq.md) | Common questions in plain words: will it run on my router, what speed to expect, how it differs from other containers |
-| [install.md](docs/en/install.md) | Where to get the `.conf`, WARP, step-by-step manual install |
+| [install.md](docs/en/install.md) | Where to get the `.conf`, WARP, step-by-step manual install, installing without GitHub access |
 | [update.md](docs/en/update.md) | Registry updates, self-repair, moving off an old file install |
 | [env.md](docs/en/env.md) | Every container environment variable |
 | [protocol.md](docs/en/protocol.md) | AmneziaWG 3.0 and 3.1 on the wire, the fallback chain, IPv6 |
@@ -82,6 +83,7 @@ MikroTik1 WG ↔ [proxy1 normal] ──AWG──> [proxy2 reverse] ↔ MikroTik2
 ```
 
 Reverse proxy: accepts AWG traffic from a normal proxy, transforms it back to standard WireGuard, and forwards to a local WG server. Allows connecting two MikroTik routers via AWG without running a separate AWG server.
+This is a point-to-point link; multiple connections are not supported.
 
 ### Server Mode (hub, 1:N)
 
@@ -113,9 +115,15 @@ The protocol version (AmneziaWG 1.0–3.1) is detected automatically from the en
 
 Done. The configurator works offline; no data is sent to any server.
 
+<video src="https://github.com/user-attachments/assets/f0100789-0a23-42f8-a67f-085e5f8d13a3" controls width="100%"></video>
+
 ![Speed test on MikroTik AX3](https://github.com/user-attachments/assets/9fb34444-681b-4f34-8306-8f202f1b121d)
 
 *Speed test on MikroTik AX3*
+
+## Installing Without GitHub Access
+
+Turn on **offline mode** in the configurator: step 0 asks the router for its architecture and RouterOS version and prints which files to download and where to put them. Details — [docs/en/install.md](docs/en/install.md#installing-without-github-access).
 
 ## Requirements
 
@@ -151,7 +159,7 @@ One awg-proxy on a VPS or a MikroTik serves many clients: a WireGuard server plu
 
 - [Environment variables](docs/en/env.md) — the full table and a description of each
 - [AmneziaWG 3.0, 3.1 and IPv6](docs/en/protocol.md) — what changes on the wire, why S1–S4 ≥ 12, the fallback chain, Happy Eyeballs
-- [Routing, DNS and MTU](docs/en/routing.md) — routes through the tunnel, PPPoE and MTU, address-list routing
+- [Routing, DNS and MTU](docs/en/routing.md) — routes through the tunnel, PPPoE and MTU, the limits of DNS routing, address-list routing
 
 ## Updating
 
