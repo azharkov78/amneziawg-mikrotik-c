@@ -192,6 +192,8 @@ static long get_rss_kb(pid_t pid) {
  * pins one on purpose, which is how the multi-start cases keep continuity. */
 static char g_state_file[96];
 static int  g_state_pinned;
+/* Hand the run AWG_STATE_FILE="" — the documented "do not persist" switch. */
+static int  g_state_off;
 
 static void state_file_fresh(void) {
     static int seq;
@@ -269,7 +271,7 @@ static pid_t start_proxy_listen_remote(const char *mode, const char *listen_str,
         setenv("AWG_NO_GRO", "1", 1);
         if (g_unset_src_port) unsetenv("AWG_SRC_PORT");
         else setenv("AWG_SRC_PORT", itoa_buf(src_port, sp), 1);
-        setenv("AWG_STATE_FILE", g_state_file, 1);
+        setenv("AWG_STATE_FILE", g_state_off ? "" : g_state_file, 1);
         if (g_dns_refresh) setenv("AWG_DNS_REFRESH", g_dns_refresh, 1);
         else               unsetenv("AWG_DNS_REFRESH");
 
@@ -2412,6 +2414,62 @@ static void test_he_family_switch_matrix(void) {
     state_file_unpin();
 }
 
+/* ---- Scenario: an empty AWG_STATE_FILE keeps the verdict off the disk ----
+ *
+ * AWG_STATE_FILE="" is documented as "do not remember at all". The run must
+ * still fall back to IPv6 when IPv4 is dead, but leave nothing on disk: not
+ * the scenario's own file and, above all, not the default path, which is where
+ * an empty value used to end up. */
+static void test_he_empty_state_file_writes_nothing(void) {
+    static const char dflt[] = "/etc/awg-proxy.state";
+    int listen_port = find_free_port();
+    int remote_port = find_free_port();
+    ASSERT(listen_port > 0);
+    ASSERT(remote_port > 0);
+
+    int v6_fd = make_udp_socket6(remote_port);
+    if (v6_fd < 0) {
+        fprintf(stderr, "          (no IPv6 loopback on this host, skipped)\n");
+        return;
+    }
+    /* A leftover from an earlier run would look like the write this checks for. */
+    if (unlink(dflt) != 0 && errno != ENOENT) {
+        fprintf(stderr, "          (%s not removable here, skipped)\n", dflt);
+        close(v6_fd);
+        return;
+    }
+    /* Bound but silent, as in test_happy_eyeballs: the probe has to time out
+     * on IPv4 rather than take an ICMP reject for a dead remote. */
+    int v4_hole = make_udp_socket(remote_port);
+    ASSERT(v4_hole >= 0);
+
+    char rbuf_env[64];
+    snprintf(rbuf_env, sizeof(rbuf_env), "localhost:%d", remote_port);
+    g_state_off = 1;
+    pid_t proxy = start_proxy_remote("normal", listen_port, rbuf_env, "200");
+    g_state_off = 0;
+    ASSERT(proxy > 0);
+
+    int client_fd = make_client_socket();
+    ASSERT(client_fd >= 0);
+    struct sockaddr_in proxy_addr = make_addr(listen_port);
+    int on_v4, on_v6;
+
+    /* IPv4 never answers, so the probe hands the run to IPv6 — the verdict a
+     * normal run writes to flash. */
+    ASSERT_EQ(handshake_on_surviving_family(client_fd, &proxy_addr, v6_fd,
+                                            0x8500, 1, 30), 1);
+    measure_family_split(client_fd, &proxy_addr, 0x8500, v4_hole, v6_fd, &on_v4, &on_v6);
+    ASSERT(on_v6 >= 25);
+
+    stop_proxy(proxy);
+    close(client_fd);
+    close(v4_hole);
+    close(v6_fd);
+    ASSERT_EQ(state_file_read(), 0);
+    ASSERT(access(dflt, F_OK) != 0);
+}
+
 /* ---- Scenario 16: a learned IPv6 preference leads the next run's dial ----
  *
  * The flash byte exists so a site whose IPv4 is dead stops paying the probe
@@ -3215,6 +3273,7 @@ int main(void) {
     RUN_TEST(he_late_answer_wins);
     RUN_TEST(he_family_switch_matrix);
     RUN_TEST(he_learned_preference_leads);
+    RUN_TEST(he_empty_state_file_writes_nothing);
     RUN_TEST(dns_resolve_before_each_connect);
     RUN_TEST(watchdog_reconnects_without_icmp);
     RUN_TEST(remote_address_moves);

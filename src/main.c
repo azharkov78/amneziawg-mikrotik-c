@@ -512,9 +512,10 @@ int main(void) {
      * time that fallback succeeds the proxy records "prefer IPv6" on disk
      * (AWG_STATE_FILE) so subsequent starts skip the dead-IPv4 head start
      * outright. The file is written at most once per learn — the router's flash
-     * is small and must not be hammered. */
+     * is small and must not be hammered. Set but empty means "do not persist":
+     * the helpers skip an empty path, so it must not fall back to the default. */
     cfg->state_file = "/etc/awg-proxy.state";
-    if ((v = getenv("AWG_STATE_FILE")) && v[0])
+    if ((v = getenv("AWG_STATE_FILE")))
         cfg->state_file = v;
 
     /* Log level */
