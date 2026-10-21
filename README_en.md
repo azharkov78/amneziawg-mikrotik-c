@@ -113,7 +113,7 @@ The protocol version (AmneziaWG 1.0–3.1) is detected automatically from the en
 3. Paste the `.conf` file contents
 4. Copy the generated commands and run them in MikroTik terminal
 
-Done. The configurator works offline; no data is sent to any server.
+Done. The configurator works offline; no data is sent to any server. The same commands are also available without a browser, [from the command line](#command-line-generator).
 
 <video src="https://github.com/user-attachments/assets/f0100789-0a23-42f8-a67f-085e5f8d13a3" controls width="100%"></video>
 
@@ -230,6 +230,21 @@ node tests/conf3.0-dns.test.js
 node tests/conf3.0-ports.test.js
 node tests/conf3.1.test.js
 ```
+
+### Command-line generator
+
+`tools/awg-gen.js` prints the same RouterOS commands as the configurator, without a browser. It opens `docs/conf3.0.html` in jsdom, fills in the form and presses Generate, so the page stays the only copy of the generation logic and the output matches it byte for byte. It runs locally and offline: the page's network calls are cut off and the private key never leaves the machine. Fit for a person and for an AI agent on the user's machine alike. Needs Node.js 20+.
+
+```bash
+npm install jsdom                        # once, in the repository root
+node tools/awg-gen.js amnezia.conf > awg.rsc
+node tools/awg-gen.js --scenario non-ru --exclude steam,epic amnezia.conf
+node tools/awg-gen.js --part routing --services youtube,telegram amnezia.conf
+node tools/awg-gen.js --mode site-to-site --endpoint 198.51.100.1 --part side-b
+node tools/awg-gen.js --help             # every option, the services and the disks
+```
+
+The config is read from a file or from stdin. The script goes to stdout in parts (`# >>> [install]`, `# >>> [routing]`, …) that are run in turn, each after the previous one has finished; `--part` prints one part. The page's notes and errors go to stderr. Exit code 1 means the page refused the config, 2 a bad option.
 
 ## License
 

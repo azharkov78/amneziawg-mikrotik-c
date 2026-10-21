@@ -39,6 +39,7 @@ Key facts (docs reviewed 2026-10-22, awg-proxy 1.4.3):
 ## Optional
 
 - [Configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html): offline command generator (paste a `.conf`, copy RouterOS commands)
+- Command-line generator for agents on the user's machine: in a clone of the repository, `npm install jsdom`, then `node tools/awg-gen.js amnezia.conf` prints the configurator's RouterOS commands locally (same code, nothing sent anywhere); `--help` lists the options
 - [Releases](https://github.com/timbrs/amneziawg-mikrotik-c/releases): image archives for every architecture and RouterOS format
 - [CHANGELOG](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/CHANGELOG.md): what changed in each version
 - [AGENTS.md](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/AGENTS.md): for people changing the code — build, tests, invariants
