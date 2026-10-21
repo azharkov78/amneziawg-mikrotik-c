@@ -5,6 +5,13 @@
 *.py
 *.png
 *.txt
+# Документация в репозитории, несмотря на *.md / *.txt выше (CLAUDE.md остаётся вне git)
+!/README.md
+!/README_en.md
+!/CHANGELOG.md
+!/AGENTS.md
+!/docs/**/*.md
+!/docs/llms.txt
 
 # jsdom, pulled in only to run tests/conf3.0-ipv6.test.js
 node_modules/

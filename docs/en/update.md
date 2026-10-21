@@ -1,0 +1,86 @@
+# Updating
+
+> Part of the [awg-proxy](../../README_en.md) documentation: a RouterOS container that connects MikroTik to AmneziaWG servers. The easiest way to install it is the [configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html), which generates all commands. Other pages: [install](install.md) · [updating](update.md) · [variables](env.md) · [AWG 3.x and IPv6](protocol.md) · [routing and MTU](routing.md) · [server mode](server-mode.md) · [troubleshooting](troubleshooting.md) · [FAQ](faq.md). The Russian docs in [docs/](../) are the most complete.
+
+RouterOS 7.22 brought `/container/repull`: it re-downloads the image from the registry and
+restarts the container with the same parameters — environment variables, veth, root-dir and
+comment all survive. WireGuard keys and tunnel settings are not touched.
+
+It only works for a container installed **from a registry** (`remote-image=`). A file install
+(`file=`) cannot be updated this way — there is nothing for RouterOS to re-pull. To check
+which one you have:
+
+```routeros
+/container/print detail where comment=awg-proxy-1
+```
+
+A non-empty `remote-image` means updates are available.
+
+## Through the configurator
+
+The configurator installs a `<prefix>-update` script on the router:
+
+```routeros
+/system/script/run awg-proxy-1-update
+```
+
+The script first asks GitHub which release is published and compares it with the installed
+version. If they match it does nothing and leaves the tunnel alone. That matters: `repull`
+restarts the container **every time**, even when the image has not changed, and the tunnel is
+down for about ten seconds while it does.
+
+When the version has moved, the script re-pulls, waits for the result, brings the container
+back up and clears the `<root-dir>.backup` directories `repull` leaves behind. A failed pull
+is retried once, and if the container still does not come back it is rebuilt from the registry
+with the same parameters: a failed `repull` leaves the container stopped with no image at all,
+which means the tunnel stays down until someone intervenes.
+
+## Self-repair
+
+The script looks at the container's state before it looks at the version - otherwise an
+update that bricked the container would stay that way forever: the version is already
+recorded, so the next night the script would answer "already up to date" over a dead tunnel.
+
+The order is:
+
+1. Container running, image present - compare versions and take it from there.
+2. Container stopped but the image is intact - just start it. Cheap, and it works below
+   RouterOS 7.22 too, where `repull` does not exist. On RouterOS 7.23+ it rarely gets that
+   far: the container carries `restart-policy=on-failure` (`restart-interval=30s`,
+   `restart-max-count=10`), so RouterOS brings a crashed process back within half a minute
+   on its own - no script, scheduler or netwatch involved. Older versions have no such
+   property, and there the restart stays with the script.
+3. No image, or it would not come up - pull again **regardless of version**, then retry,
+   then rebuild from the registry.
+4. Nothing worked - one `:log error` and out. The scheduler runs the script again the
+   next night and the attempt repeats.
+
+`AWG_IMAGE_VER` is only written once the container is actually back up. While the tunnel is
+down, the netwatch failover (the "Netwatch failover" box) disables its route, so the router
+stays online through the next tunnel or directly. The update script itself never touches
+netwatch, routes or the WireGuard interface.
+
+A container installed from a file is left alone - with one exception: if such a container is
+dead and RouterOS is 7.22+, the script points it at the registry and repairs it with a pull.
+That is the only way to bring it back automatically.
+
+The "Check for container updates daily" box (ticked by default) adds a scheduler at 04:30
+alongside the script. If `scheduler` is forbidden by device-mode the install survives it and
+simply says there will be no daily check — update by hand with the same command.
+
+## By hand
+
+```routeros
+/container/set [find where comment=awg-proxy-1] remote-image=ghcr.io/timbrs/awg-proxy:latest
+/container/repull [find where comment=awg-proxy-1]
+```
+
+Afterwards make sure the container is running (`R` in `/container/print`) and delete the
+leftover `<root-dir>.backup`: RouterOS keeps it around, and on 16 MB of flash those copies add
+up quickly.
+
+## From an older file install
+
+`repull` is not available for it. The simplest path is a reinstall through the configurator on
+RouterOS 7.22+: it installs from the registry, and updates become one command from then on.
+Keys and tunnel parameters are regenerated, so the server side needs updating too.
