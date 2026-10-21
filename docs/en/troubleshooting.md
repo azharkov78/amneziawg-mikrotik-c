@@ -139,17 +139,32 @@ USB (hAP ax², hAP ax S) once other containers or leftovers from earlier updates
 
 ## start failed: no default dns servers
 
-On RouterOS 7.24 a container may refuse to start with
-`start failed: no default dns servers, explicitly set empty dns override if intended`. RouterOS hands the
-router's DNS servers to the container and refuses to start when there are none (for example, the router only
-uses DoH) and the container has no `dns` of its own. Set it explicitly (use your comment from `/container/print`):
+On RouterOS 7.24 a container refuses to start with
+`start failed: no default dns servers, explicitly set empty dns override if intended` when the router itself
+has no DNS servers: both `servers` and `dynamic-servers` in `/ip/dns` are empty (for example, the router only
+uses DoH). RouterOS hands the router's servers to the container — they show up as `default-dns` in
+`/container/print detail` — and without them, unless the container has a `dns` of its own, the start is
+aborted and the container stays stopped.
+
+Scripts from the configurator set `dns` themselves: the same address as `AWG_DNS`, or an empty value when the
+endpoint is an IP address. Fix a container installed earlier by hand (use your comment from `/container/print`)
+and start it:
 
 ```routeros
+# endpoint is an IP address: the proxy needs no DNS
+/container/set [find where comment=awg-proxy-1] dns=""
+# endpoint is a hostname: the same address as AWG_DNS
 /container/set [find where comment=awg-proxy-1] dns=1.1.1.1
+/container/start [find where comment=awg-proxy-1]
 ```
 
-The proxy itself needs DNS only when `AWG_REMOTE` is a hostname. Then the address must be reachable without the
-tunnel, and it belongs in `AWG_DNS` as well.
+- `dns=""` is the empty override the error talks about: the container starts, and RouterOS writes no
+  `/etc/resolv.conf` for it. The proxy only resolves a hostname in `AWG_REMOTE`, and it takes the resolver from
+  `AWG_DNS`, rewriting `/etc/resolv.conf` itself after the start. So `AWG_DNS`, when set, always wins over `dns`.
+- The router's own address (on the veth or in the LAN) does not work as `dns`: the default firewall
+  (`drop all not coming from LAN`) drops DNS queries coming from the veth — the container starts, but the name
+  never resolves.
+- `/container/set` on a running container restarts it.
 
 ## not allowed by device-mode
 

@@ -139,17 +139,31 @@ flash без USB (hAP ax², hAP ax S), когда память уже занял
 
 ## start failed: no default dns servers
 
-На RouterOS 7.24 контейнер может не запуститься с ошибкой
-`start failed: no default dns servers, explicitly set empty dns override if intended`. RouterOS передаёт
-контейнеру DNS-серверы роутера и отказывается стартовать, если их нет (например, на роутере настроен только
-DoH), а у контейнера не задан свой `dns`. Задайте его явно (подставьте свой comment из `/container/print`):
+На RouterOS 7.24 контейнер не запускается с ошибкой
+`start failed: no default dns servers, explicitly set empty dns override if intended`, если у самого роутера
+нет DNS-серверов: в `/ip/dns` пусты и `servers`, и `dynamic-servers` (например, настроен только DoH).
+RouterOS отдаёт контейнеру серверы роутера — они видны как `default-dns` в `/container/print detail`, — и без
+них, если у контейнера не задан свой `dns`, старт обрывается, контейнер остаётся остановленным.
+
+Скрипты из конфигуратора задают `dns` сами: тот же адрес, что в `AWG_DNS`, а если endpoint указан IP-адресом,
+пустое значение. Контейнер, поставленный раньше, поправьте руками (подставьте свой comment из
+`/container/print`) и запустите:
 
 ```routeros
+# endpoint - IP-адрес: прокси DNS не нужен
+/container/set [find where comment=awg-proxy-1] dns=""
+# endpoint - доменное имя: тот же адрес, что в AWG_DNS
 /container/set [find where comment=awg-proxy-1] dns=1.1.1.1
+/container/start [find where comment=awg-proxy-1]
 ```
 
-Самому прокси DNS нужен, только если в `AWG_REMOTE` указано доменное имя. Тогда адрес должен быть доступен
-без туннеля, и его же стоит записать в `AWG_DNS`.
+- `dns=""` — тот самый пустой override, о котором говорит ошибка: контейнер стартует, а `/etc/resolv.conf`
+  RouterOS ему не пишет. Прокси резолвит только доменное имя из `AWG_REMOTE`, и резолвер он берёт из
+  `AWG_DNS`: после старта сам переписывает `/etc/resolv.conf`. Поэтому `AWG_DNS`, если он задан, всегда
+  главнее `dns`.
+- Адрес самого роутера (на veth или в LAN) в `dns` не годится: штатный фаервол (`drop all not coming from LAN`)
+  отбрасывает DNS-запросы с veth — контейнер запустится, но имя не разрешится.
+- `/container/set` на работающем контейнере его перезапускает.
 
 ## not allowed by device-mode
 
