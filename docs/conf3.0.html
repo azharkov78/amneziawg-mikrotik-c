@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AWG Proxy 3.0 — Offline MikroTik Command Generator</title>
+    <meta name="description" content="Офлайн-конфигуратор awg-proxy: вставьте .conf из AmneziaVPN или конфиг WARP и получите команды RouterOS для подключения MikroTik к AmneziaWG 1.0–3.1. Ключи не покидают браузер.">
+    <link rel="alternate" type="text/plain" href="llms.txt" title="llms.txt">
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -1235,6 +1237,13 @@
     })();
 
     var RU_RANGES_BASE = 'https://github.com/timbrs/ru-ranges/releases/latest/download/';
+
+    // RouterOS condition, over $rbModel and $bName, for boards that report
+    // architecture-name "arm" but only run ARMv5 code: hEX refresh (E50UG),
+    // hEX S 2025 (E60iUGS), hAP ax S (E62iUGS). The ARMv7 image dies there with
+    // signal 4. One string for the installer and the update script alike.
+    var ARMV5_BOARDS = '$rbModel~"E50UG" || $rbModel~"E60iUGS" || $rbModel~"E62iUGS" || ' +
+        '$bName~"E50UG" || $bName~"E60iUGS" || $bName~"E62iUGS" || $bName~"^hEX" || $bName~"^hAP ax S"';
 
     var I18N = {
         en: {
@@ -3643,7 +3652,7 @@
         src.push('      :local rbModel ""');
         src.push('      :do { :set rbModel [[:parse ":return [/system/routerboard/get model]"]] } on-error={}');
         src.push('      :local bName [/system/resource/get board-name]');
-        src.push('      :if ($rbModel~"E50UG" || $rbModel~"E60iUGS" || $bName~"E50UG" || $bName~"E60iUGS" || $bName~"^hEX") do={');
+        src.push('      :if (' + ARMV5_BOARDS + ') do={');
         src.push('        :set imgTag "latest-armv5"');
         src.push('      }');
         src.push('      :set img ("' + REPO.ghcr + ':" . $imgTag)');
@@ -6355,7 +6364,7 @@
         // :parse defers the lookup to runtime, so :do handles the missing menu.
         lines.push(ind + '  :do { :set rbModel [[:parse ":return [/system/routerboard/get model]"]] } on-error={}');
         lines.push(ind + '  :local bName [/system/resource/get board-name]');
-        lines.push(ind + '  :if ($rbModel~"E50UG" || $rbModel~"E60iUGS" || $bName~"E50UG" || $bName~"E60iUGS" || $bName~"^hEX") do={');
+        lines.push(ind + '  :if (' + ARMV5_BOARDS + ') do={');
         lines.push(ind + '    :set file ("awg-proxy-armv5" . $suffix . ".tar.gz")');
         lines.push(ind + '    :set imgTag "latest-armv5"');
         lines.push(ind + '  }');

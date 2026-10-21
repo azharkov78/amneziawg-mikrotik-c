@@ -112,6 +112,11 @@ ok('the registry image is ghcr.io/<owner>/awg-proxy',
    lineWith(script, ':local img').join(' | '));
 ok('the default tag is :latest', /:local imgTag "latest"/.test(script));
 ok('armv5 gets its own tag', /:set imgTag "latest-armv5"/.test(script));
+// hAP ax S reports architecture-name "arm" too, and the ARMv7 image dies on it
+// with signal 4, same as hEX refresh and hEX S 2025.
+['E50UG', 'E60iUGS', 'E62iUGS', '^hAP ax S'].forEach(function (b) {
+    ok('armv5 board list covers ' + b, lineWith(script, '$bName~"' + b + '"').length > 0);
+});
 ok('the registry branch is gated on RouterOS 7.22+',
    /:if \(!\$added && \$minor >= 22\) do=\{/.test(script));
 ok('the pull goes through remote-image',
