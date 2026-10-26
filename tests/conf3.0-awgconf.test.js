@@ -190,6 +190,25 @@ function confPriv(c) {
     ok('added client .conf takes the next tunnel address',
        r.awgConf.indexOf('Address = 10.182.242.3/32') >= 0, r.awgConf);
 
+    /* The hub reads AWG_CLIENT_PUBS once, at start: without a restart the key
+     * just added stays unknown and a direct client never handshakes (#74). */
+    const upd = r.serverUpdate;
+    const pub = peerKeyIn(upd);
+    const keyAt = upd.indexOf(',' + pub + '")');
+    const stopAt = upd.indexOf('/container/stop $cid');
+    const startAt = upd.indexOf('/container/start $cid');
+    ok('hub update appends the key to AWG_CLIENT_PUBS', keyAt >= 0, upd);
+    ok('hub update adds AWG_CLIENT_PUBS on a hub that lacks it',
+       upd.indexOf('key=AWG_CLIENT_PUBS value="' + pub + '"') >= 0, upd);
+    ok('hub update does not append a key that is already there',
+       upd.indexOf('[:find $cur "' + pub + '"]') >= 0, upd);
+    ok('hub update restarts the container after the key change',
+       keyAt >= 0 && stopAt > keyAt && startAt > stopAt, upd);
+    ok('hub update restarts only the running container',
+       upd.indexOf('/container/find where interface=veth-awg-server-1 and !stopped') >= 0, upd);
+    ok('hub update has balanced braces',
+       (upd.match(/\{/g) || []).length === (upd.match(/\}/g) || []).length, upd);
+
     /* And the button that hands it out is actually there. */
     w2.renderClientPanel(r, 'l3', 2);
     const btn = w2.document.getElementById('srv-download-conf');

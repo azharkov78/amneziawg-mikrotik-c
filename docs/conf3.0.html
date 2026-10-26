@@ -5832,11 +5832,43 @@
         lu.push('# Add client ' + clientNum + ' to server \u2014 run on HEAD MikroTik');
         lu.push('# ============================================================');
         lu.push('/interface/wireguard/peers/add interface=wg-' + prefix + ' public-key="' + clientKey.publicKey + '" allowed-address=' + serverAllowed + ' comment=' + prefix + '-client-' + clientNum);
+        // A hub installed before AWG_CLIENT_PUBS existed has no such variable, and
+        // a bare set on it fails; a second paste must not append the key twice.
         lu.push('# Keep AWG_CLIENT_PUB as legacy fallback; append this real client key to AWG_CLIENT_PUBS for direct AWG clients.');
-        lu.push('/container/envs/set [find where list="' + prefix + '-env" key="AWG_CLIENT_PUBS"] value=([/container/envs/get [find where list="' + prefix + '-env" key="AWG_CLIENT_PUBS"] value] . "," . "' + clientKey.publicKey + '")');
+        lu.push('{');
+        lu.push('  :local e [/container/envs/find where list="' + prefix + '-env" key="AWG_CLIENT_PUBS"]');
+        lu.push('  :if ([:len $e] = 0) do={');
+        lu.push('    /container/envs/add list=' + prefix + '-env key=AWG_CLIENT_PUBS value="' + clientKey.publicKey + '"');
+        lu.push('  } else={');
+        lu.push('    :local cur [/container/envs/get [:pick $e 0] value]');
+        lu.push('    :if ([:typeof [:find $cur "' + clientKey.publicKey + '"]] = "nil") do={ /container/envs/set [:pick $e 0] value=($cur . ",' + clientKey.publicKey + '") }');
+        lu.push('  }');
+        lu.push('}');
         if (netMode === 'l3' && clientLAN) {
             lu.push('/ip/route/add dst-address=' + clientLAN + ' gateway=wg-' + prefix + ' comment=' + prefix + '-client-' + clientNum);
         }
+        // The proxy reads AWG_CLIENT_PUBS once, at start (#74). Without a restart a
+        // direct AmneziaWG client never gets a handshake response it accepts: its
+        // MAC1 is recomputed under a key the running hub has not heard of.
+        lu.push('# The hub container reads AWG_CLIENT_PUBS only at start - restart it.');
+        lu.push('# Clients already connected reconnect within a few seconds.');
+        lu.push('{');
+        lu.push('  :local cids [/container/find where interface=veth-' + prefix + ' and !stopped]');
+        lu.push('  :if ([:len $cids] = 0) do={');
+        lu.push('    :put "Hub container is not running - client ' + clientNum + ' will work once it is started"');
+        lu.push('  } else={');
+        lu.push('    :local cid [:pick $cids ([:len $cids] - 1)]');
+        lu.push('    /container/stop $cid');
+        lu.push('    :local w 0');
+        lu.push('    :while ($w < 30) do={');
+        lu.push('      :delay 1s');
+        lu.push('      :set w ($w + 1)');
+        lu.push('      :do { :if ([/container/get $cid stopped] = true) do={ :set w 99 } } on-error={}');
+        lu.push('    }');
+        lu.push('    /container/start $cid');
+        lu.push('    :put "Hub container restarted - client ' + clientNum + ' can connect"');
+        lu.push('  }');
+        lu.push('}');
 
         // Full client config
         var lc = [];
