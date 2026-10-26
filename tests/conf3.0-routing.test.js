@@ -45,7 +45,7 @@ function dnsFwd(services) {
 /* ---- #41: Telegram needs its ranges seeded ---- */
 const tg = dnsFwd(['telegram']);
 const TG_RANGES = ['91.108.4.0/22', '91.108.8.0/22', '91.108.12.0/22', '91.108.16.0/22',
-                   '91.108.20.0/22', '91.108.56.0/22', '149.154.160.0/20', '185.76.151.0/24'];
+                   '91.108.20.0/22', '91.108.56.0/22', '91.105.192.0/23', '149.154.160.0/20', '185.76.151.0/24'];
 TG_RANGES.forEach(function (r) {
     ok('telegram range ' + r + ' is seeded', tg.indexOf('"' + r + '"') >= 0);
 });
