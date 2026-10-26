@@ -192,6 +192,26 @@ version with the latest release and touches nothing when they match. A scheduler
 unticked auto-update during install. It works for registry installs (RouterOS 7.22+). Details:
 [updating](update.md).
 
+### The configurator changed. Do I remove everything and install again?
+
+Depends on what changed.
+
+- **The proxy itself** (a new container release): reinstall nothing, run `<prefix>-update` as in the
+  previous answer. It leaves settings and keys alone.
+- **Routing** (services, exclusions, "all non-RU traffic"): its script can be run on top. Since 1.4.3 it
+  removes its own earlier rules first and sets everything up again.
+- **Everything else** (firewall, DNS, container parameters): uninstall first. The install script expects
+  a clean router; run over an old install it adds everything a second time, hence the duplicates. Run
+  `/system/script/run awg-proxy-1-uninstall` (it removes the routing rules too), then the new install
+  and routing scripts with the same prefix. The keys come from your `.conf`, so nothing changes on the
+  server. The tunnel is down for a minute or two, and the routing script downloads the `RU` list itself.
+
+Already installed on top and got duplicates? The same `<prefix>-uninstall` removes everything with that
+prefix, duplicates included. Install cleanly after it.
+
+A server-mode hub is not reinstalled this way: the configurator would generate new keys for it, and every
+client would have to be set up again.
+
 ### Can phones connect to a MikroTik hub?
 
 Yes. In "Server (1:N hub)" mode the configurator also produces a `.conf` and a share link for the AmneziaWG and
