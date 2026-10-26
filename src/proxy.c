@@ -717,7 +717,7 @@ static void check_path_mtu(proxy_t *p) {
     socklen_t len = sizeof(mtu);
     if (getsockopt(fd, v6 ? IPPROTO_IPV6 : IPPROTO_IP, v6 ? IPV6_MTU : IP_MTU,
                    &mtu, &len) < 0 ||
-        mtu <= 0 || mtu >= AWG_PATH_MTU || mtu == p->path_mtu)
+        !awg_path_mtu_usable(mtu) || mtu == p->path_mtu)
         return;
     p->path_mtu = mtu;
     atomic_store_explicit(&p->frag_lim, mtu, memory_order_relaxed);

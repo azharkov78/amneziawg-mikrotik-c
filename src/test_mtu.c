@@ -74,6 +74,24 @@ static void test_absurd_padding_does_not_underflow(void) {
     ASSERT_EQ(awg_max_wg_mtu(0, 0, 0), 0);
 }
 
+/* #76: a switch port flapping made the kernel report 68 for a moment, and the
+ * proxy advised "MTU 0 or lower". Readings no real path has are skipped;
+ * PPPoE, LTE and the floors themselves still count. */
+static void test_flapping_link_reading_is_skipped(void) {
+    ASSERT(!awg_path_mtu_usable(0));
+    ASSERT(!awg_path_mtu_usable(68));
+    ASSERT(!awg_path_mtu_usable(575));
+    ASSERT(awg_path_mtu_usable(576));
+    ASSERT(awg_path_mtu_usable(1280));
+    ASSERT(awg_path_mtu_usable(1492));
+    ASSERT(!awg_path_mtu_usable(1500));
+    ASSERT(!awg_path_mtu_usable(65535));
+    /* Everything that passes names a WireGuard MTU above zero. */
+    for (int path = 0; path <= 1500; path++)
+        if (awg_path_mtu_usable(path))
+            ASSERT(awg_max_wg_mtu(path, 0, 0) > 0);
+}
+
 int main(void) {
     fprintf(stderr, "=== mtu tests ===\n");
     RUN_TEST(no_padding);
@@ -83,5 +101,6 @@ int main(void) {
     RUN_TEST(result_is_16_aligned);
     RUN_TEST(ceiling_actually_fits);
     RUN_TEST(absurd_padding_does_not_underflow);
+    RUN_TEST(flapping_link_reading_is_skipped);
     TEST_MAIN_END();
 }

@@ -528,6 +528,15 @@ uint16_t portset_pick(const portset_t *ps, fastrand_t *rng, uint16_t avoid);
 /* Path MTU assumed until the kernel learns a smaller one from ICMP. */
 #define AWG_PATH_MTU 1500
 
+/* A learned path MTU worth acting on. Every IPv4 path carries 576 bytes and
+ * every IPv6 one 1280, so a smaller reading is a link caught going down (68,
+ * the IPv4 minimum, came from a switch port that kept flapping, #76) — and the
+ * MTU it would advise is "0 or lower". 1500 and up is the default, nothing
+ * learned. */
+static inline int awg_path_mtu_usable(int mtu) {
+    return mtu >= 576 && mtu < AWG_PATH_MTU;
+}
+
 /* Largest WireGuard MTU whose full-size transport packet still fits a path
  * of path_mtu bytes:
  *   IP(20|40) + UDP(8) + S4 + WG hdr(16) + round_up(mtu,16) + tag(16) <= path_mtu
