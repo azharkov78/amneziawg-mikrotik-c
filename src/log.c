@@ -1,8 +1,23 @@
 #include "log.h"
 #include <unistd.h>
 #include <string.h>
+#include <sys/uio.h>
 
 int g_log_level = LOG_INFO;
+static const char *route_name;
+static size_t route_length;
+
+void log_set_route(const char *route) {
+    route_name = route;
+    route_length = route ? strnlen(route, 64) : 0;
+}
+
+static void emit(const char *buf, int n) {
+    if (!route_length) { write(STDERR_FILENO, buf, n); return; }
+    struct iovec parts[] = {{(void *)"[", 1}, {(void *)route_name, route_length},
+        {(void *)"] ", 2}, {(void *)buf, (size_t)n}};
+    writev(STDERR_FILENO, parts, 4);
+}
 
 static inline int slen(const char *s) {
     const char *p = s;
@@ -22,7 +37,7 @@ void log_msg(const char *prefix, const char *msg) {
     memcpy(buf + n, msg, ml);
     n += ml;
     buf[n++] = '\n';
-    write(STDERR_FILENO, buf, n);
+    emit(buf, n);
 }
 
 void log_msg2(const char *prefix, const char *a, const char *b) {
@@ -41,7 +56,7 @@ void log_msg2(const char *prefix, const char *a, const char *b) {
     memcpy(buf + n, b, bl);
     n += bl;
     buf[n++] = '\n';
-    write(STDERR_FILENO, buf, n);
+    emit(buf, n);
 }
 
 void log_msg3(const char *prefix, const char *a, const char *b, const char *c) {
@@ -54,7 +69,7 @@ void log_msg3(const char *prefix, const char *a, const char *b, const char *c) {
     int bl = slen(b); if (n+bl > 480) bl = 480-n; memcpy(buf+n, b, bl); n += bl;
     int cl = slen(c); if (n+cl > 510) cl = 510-n; memcpy(buf+n, c, cl); n += cl;
     buf[n++] = '\n';
-    write(STDERR_FILENO, buf, n);
+    emit(buf, n);
 }
 
 void log_msgn(const char *prefix, const char **parts, int count) {
@@ -71,7 +86,7 @@ void log_msgn(const char *prefix, const char **parts, int count) {
         n += l;
     }
     buf[n++] = '\n';
-    write(STDERR_FILENO, buf, n);
+    emit(buf, n);
 }
 
 char *u32_to_str(char *buf, unsigned int v) {

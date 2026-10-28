@@ -130,3 +130,15 @@ docker-amd64-7.20-docker:
 	VERSION=$(VERSION) ../scripts/mkdockertar-c.sh linux amd64 "" $(IMAGE_NAME):$(VERSION)-amd64 $(BUILD_DIR)/$(IMAGE_NAME)-amd64-7.20-Docker.tar.gz
 
 docker-all-7.20-docker: docker-arm64-7.20-docker docker-arm-7.20-docker docker-armv5-7.20-docker docker-amd64-7.20-docker
+
+.PHONY: build-supervisor test-supervisor test-multiroute-transport
+build-supervisor:
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -static -Wl,--gc-sections -flto -s -o $(BUILD_DIR)/awg-supervisor src/supervisor.c
+
+test-supervisor:
+	$(CC) $(TEST_CFLAGS) -o /tmp/awg-supervisor-test src/supervisor.c
+	AWG_SUPERVISOR=/tmp/awg-supervisor-test python3 tests/test_supervisor.py
+
+test-multiroute-transport: build build-supervisor
+	AWG_REAL_PROXY=$(abspath $(BUILD_DIR))/awg-proxy AWG_SUPERVISOR=$(abspath $(BUILD_DIR))/awg-supervisor python3 tests/test_multiroute_transport.py

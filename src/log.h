@@ -4,6 +4,7 @@
 enum { LOG_NONE = 0, LOG_ERROR = 1, LOG_INFO = 2, LOG_DEBUG = 3 };
 
 extern int g_log_level;
+void log_set_route(const char *route);
 
 void log_msg(const char *prefix, const char *msg);
 void log_msg2(const char *prefix, const char *a, const char *b);

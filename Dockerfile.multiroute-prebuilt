@@ -1,0 +1,5 @@
+# Build context must contain static musl binaries for the selected --platform.
+FROM scratch
+COPY awg-proxy /awg-proxy
+COPY awg-supervisor /awg-supervisor
+ENTRYPOINT ["/awg-supervisor"]

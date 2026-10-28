@@ -43,3 +43,5 @@ Key facts (docs reviewed 2026-10-22, awg-proxy 1.4.3):
 - [Releases](https://github.com/timbrs/amneziawg-mikrotik-c/releases): image archives for every architecture and RouterOS format
 - [CHANGELOG](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/CHANGELOG.md): what changed in each version
 - [AGENTS.md](https://raw.githubusercontent.com/timbrs/amneziawg-mikrotik-c/main/AGENTS.md): for people changing the code — build, tests, invariants
+
+- Optional multiroute build: docs/multiroute.md and docs/en/multiroute.md; one stock proxy process per route, AWG_CONFIG_DIR, common.env plus route .env files; normal still has one client per process. This is independent of multi-client normal and is not yet a published image.

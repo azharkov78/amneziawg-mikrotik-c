@@ -7,6 +7,8 @@
 
 [Русская версия](README.md) | [Configurator](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html) | [Releases](https://github.com/timbrs/amneziawg-mikrotik-c/releases) | [FAQ](docs/en/faq.md)
 
+Optional build: [multiple routes in one container](docs/en/multiroute.md) — supervisor and file-based configuration.
+
 ## In short
 
 - **What it is.** A RouterOS container (~300 KB) that connects a regular MikroTik WireGuard interface to an AmneziaWG server. The router does the encryption itself; the container only changes how packets look: headers, padding, junk packets.

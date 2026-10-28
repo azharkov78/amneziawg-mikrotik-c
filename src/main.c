@@ -352,6 +352,7 @@ static int fit_perf_to_hardware(awg_config_t *cfg) {
 }
 
 int main(void) {
+    log_set_route(getenv("AWG_ROUTE_NAME"));
     int errs = 0;
     const char *v;
     awg_config_t *cfg = &g_config;

@@ -1,0 +1,17 @@
+ARG BASE=alpine:3.22
+FROM ${BASE} AS build
+RUN --mount=type=secret,id=build_ca \
+    if [ -s /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi; \
+    apk add --no-cache build-base linux-headers
+WORKDIR /src
+COPY src/ src/
+COPY Makefile .
+ARG VERSION=supervisor-dev
+RUN make build build-supervisor VERSION=${VERSION} CC=gcc BUILD_DIR=/out && \
+    mkdir -p /out/etc && touch /out/etc/resolv.conf
+
+FROM scratch
+COPY --from=build /out/awg-proxy /awg-proxy
+COPY --from=build /out/awg-supervisor /awg-supervisor
+COPY --from=build /out/etc/resolv.conf /etc/resolv.conf
+ENTRYPOINT ["/awg-supervisor"]

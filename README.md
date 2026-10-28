@@ -7,6 +7,8 @@
 
 [English version](README_en.md) | [Конфигуратор](https://timbrs.github.io/amneziawg-mikrotik-c/conf3.0.html) | [Релизы](https://github.com/timbrs/amneziawg-mikrotik-c/releases) | [FAQ](docs/faq.md)
 
+Дополнительная сборка: [несколько маршрутов в одном контейнере](docs/multiroute.md) — supervisor и файловые конфиги.
+
 ## Коротко
 
 - **Что это.** Контейнер для RouterOS (~300 КБ), который подключает обычный WireGuard-интерфейс MikroTik к серверу AmneziaWG. Шифрует сам роутер, а контейнер только меняет вид пакетов: заголовки, паддинг, мусорные пакеты.
